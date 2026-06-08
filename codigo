@@ -1,0 +1,526 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+int mostrarmenu() {
+    int esc;
+    printf("------------\n");
+    printf("Dungeon crawler\n");
+    printf("------------\n");
+    printf("1 - Jogar\n");
+    printf("2 - Tutorial\n");
+    printf("3 - Sair\n");
+    printf("Escolha: ");
+
+    if(scanf("%d", &esc) != 1){
+        printf("Invalido!\n");
+        limparBuffer(); 
+        return -1;
+    }
+    limparBuffer(); 
+    return esc;
+}
+
+void iniciarFase2(char mapa[15][15], int *pL, int *pC, int *mL, int *mC) {
+    int i, j;
+    *pL=1; *pC=1; *mL=9; *mC=9;
+    for(i=0; i<15; i++) 
+        for(j=0; j<15; j++) 
+            mapa[i][j] = (i==0 || i==14 || j==0 || j==14) ? '*' : '.';
+            
+    for(j=3; j<=8; j++) mapa[5][j]='*';
+    for(j=6; j<=11; j++) mapa[10][j]='*';
+    mapa[2][5]='@'; mapa[8][10]='@'; mapa[5][9]='D'; mapa[10][5]='D';
+    mapa[3][3]='#'; mapa[3][4]='#'; mapa[7][7]='O'; mapa[12][12]='L';
+    mapa[*mL][*mC]='X'; mapa[*pL][*pC]='^';
+}
+
+void imprimirFase2(char mapa[15][15]) {
+    int i, j;
+    printf("\n--- SEGUNDO ANDAR (15x15) ---\n");
+    for(i=0; i<15; i++) {
+        for(j=0; j<15; j++) printf("%c ", mapa[i][j]); 
+        printf("\n");
+    }
+}
+
+void iniciarFase3(char mapa[25][25], int *pL, int *pC, int *x1L, int *x1C, int *y1L, int *y1C, int *bL, int *bC) {
+    int i, j;
+    *pL=1; *pC=1; *x1L=5; *x1C=15; *y1L=15; *y1C=5; *bL=22; *bC=22;
+    for(i=0; i<25; i++) 
+        for(j=0; j<25; j++) 
+            mapa[i][j] = (i==0 || i==24 || j==0 || j==24) ? '*' : '.';
+            
+    for(j=3; j<=12; j++) mapa[6][j]='*';
+    for(i=6; i<=14; i++) mapa[i][12]='*';
+    for(j=5; j<=18; j++) mapa[14][j]='*';
+    for(i=8; i<=14; i++) mapa[i][18]='*';
+    mapa[3][5]='@'; mapa[9][14]='@'; mapa[18][8]='@';
+    mapa[6][13]='D'; mapa[14][19]='D'; mapa[20][12]='D';
+    mapa[4][4]='#'; mapa[4][5]='#'; mapa[10][10]='#';
+    mapa[8][6]='O'; mapa[15][15]='O';
+    mapa[5][3]='k'; mapa[7][15]='k';
+    mapa[*x1L][*x1C]='X'; mapa[*y1L][*y1C]='Y'; mapa[*bL][*bC]='Z';
+    mapa[*pL][*pC]='^';
+}
+
+void imprimirFase3(char mapa[25][25]) {
+    int i, j;
+    printf("\n--- TERCEIRO ANDAR (25x25) ---\n");
+    for(i=0; i<25; i++) {
+        for(j=0; j<25; j++) printf("%c ", mapa[i][j]); 
+        printf("\n");
+    }
+}
+
+int celulaAtingida(int pL, int pC, int dir, int arma, int al, int ac) {
+    int k;
+    if(arma==1){ 
+        if(dir==0) return(al>=pL-2 && al<=pL-1 && ac>=pC-1 && ac<=pC+1);
+        if(dir==1) return(al>=pL+1 && al<=pL+2 && ac>=pC-1 && ac<=pC+1);
+        if(dir==2) return(ac>=pC-2 && ac<=pC-1 && al>=pL-1 && al<=pL+1);
+        return(ac>=pC+1 && ac<=pC+2 && al>=pL-1 && al<=pL+1);
+    }
+    if(arma==2){ 
+        for(k=1; k<=4; k++){
+            if(dir==0 && al==pL-k && ac==pC) return 1;
+            if(dir==1 && al==pL+k && ac==pC) return 1;
+            if(dir==2 && ac==pC-k && al==pL) return 1;
+            if(dir==3 && ac==pC+k && al==pL) return 1;
+        }
+        return 0;
+    } 
+    if(arma==3){ 
+        return(al>=pL-1 && al<=pL+1 && ac>=pC-1 && ac<=pC+1 && !(al==pL && ac==pC));
+    }
+    return 0;
+}
+
+
+void moverX(int lins, int cols, char mapa[lins][cols], int *mL, int *mC) {
+    int dir=rand()%4, nl=*mL, nc=*mC; char cel;
+    if(dir==0) nl--; else if(dir==1) nl++; else if(dir==2) nc--; else nc++;
+    if(nl<0 || nl>=lins || nc<0 || nc>=cols) return;
+    cel=mapa[nl][nc];
+    if(cel=='*' || cel=='k' || cel=='D' || cel=='#' || cel=='L' || cel=='O') return;
+    mapa[*mL][*mC]='.'; *mL=nl; *mC=nc; mapa[nl][nc]='X';
+}
+
+void moverY(int lins, int cols, char mapa[lins][cols], int *mL, int *mC, int pL, int pC) {
+    int nl=*mL, nc=*mC, dl=pL-*mL, dc=pC-*mC; char cel;
+    int adl=dl<0?-dl:dl, adc=dc<0?-dc:dc;
+    if(adl>=adc) nl+=(pL>*mL)?1:-1; else nc+=(pC>*mC)?1:-1;
+    if(nl<0 || nl>=lins || nc<0 || nc>=cols) return;
+    cel=mapa[nl][nc];
+    if(cel=='*' || cel=='k' || cel=='D' || cel=='#' || cel=='L' || cel=='O') return;
+    mapa[*mL][*mC]='.'; *mL=nl; *mC=nc; mapa[nl][nc]='Y';
+}
+
+void moverBoss(int lins, int cols, char mapa[lins][cols], int *bL, int *bC, int pL, int pC, int turno) {
+    int nl=*bL, nc=*bC; char cel;
+    if(turno%3==0){ nl+=(pL>*bL)?1:-1; nc+=(pC>*bC)?1:-1; }
+    else { 
+        int dl=pL-*bL, dc=pC-*bC, adl=dl<0?-dl:dl, adc=dc<0?-dc:dc;
+        if(adl>=adc) nl+=(dl>0)?1:-1; else nc+=(dc>0)?1:-1; 
+    }
+    if(nl<0 || nl>=lins || nc<0 || nc>=cols) return;
+    cel=mapa[nl][nc];
+    if(cel=='*' || cel=='k' || cel=='D' || cel=='L' || cel=='O') return;
+    mapa[*bL][*bC]='.'; *bL=nl; *bC=nc; mapa[nl][nc]='Z';
+}
+
+void telaVitoria() {
+    printf("\n*************************************\n");
+    printf("* PARABENS, HEROI!                  *\n");
+    printf("* Voce derrotou o Boss Final!       *\n");
+    printf("* A paz voltou para a vila!         *\n");
+    printf("*************************************\n\n");
+}
+
+void telaGameOver() {
+    printf("\n*************************************\n");
+    printf("* G A M E   O V E R                 *\n");
+    printf("* Voce perdeu todas as vidas.       *\n");
+    printf("*************************************\n\n");
+}
+
+int main() {
+    srand(time(NULL));
+    int menu = 0;
+    int opcao;
+    int vidas = 3;
+    int arma = 0;
+    int chave = 0;
+    int caixa = 1;
+    int i, j;
+    char jogador = 'v';
+    
+    char vila[10][10];
+    int linha = 1;
+    int coluna = 1;
+    char movimento;
+    
+    for(i = 0; i < 10; i++) {
+        for(j = 0; j < 10; j++) {
+            vila[i][j] = '.';
+        }
+    }
+    vila[linha][coluna] = jogador;
+    vila[3][6] = 'N';
+    vila[8][9] = 'E';    
+    
+    char andar1[10][10];
+    int linhaAndar = 0;
+    int colunaAndar = 0; 
+    
+    while(menu != 4) {
+
+        if(menu == 0) {
+            opcao = mostrarmenu();
+            if(opcao == 1) {
+                menu = 1;
+            }
+            else if(opcao == 2) {
+                printf("\n\ntutorial do jogo:\n");
+                printf("aperte W para ir para cima\n");
+                printf("aperte A para ir para a esquerda\n");
+                printf("aperte S para ir para baixo\n");
+                printf("aperte D para ir para a direita\n");
+                printf("aperte I para interagir\n");
+                printf("aperte O para atacar\n\n");
+
+                printf("Historia do jogo:\n");
+                printf("Uma masmorra surgiu proxima a vila e monstros comecaram a atacar os moradores\n");
+                printf("voce foi escolhido para derrota-los\n\n");
+
+                printf("SIMBOLOS DO JOGO:\n");
+                printf("* eh uma parede\n");
+                printf("# eh um espinho\n");
+                printf("k eh uma caixa\n");
+                printf("O eh um botao\n");
+                printf("D eh uma porta fechada\n");
+                printf("@ eh uma chave\n");
+                printf("= eh uma porta aberta\n");
+                printf("L eh uma escada\n");
+                printf("X eh um monstro tipo 1\n");
+                printf("Y eh um monstro tipo 2\n");
+                printf("Z eh o boss final\n");
+
+                printf("\nDigite qualquer numero para voltar: ");
+                if(scanf("%d", &opcao) != 1) {
+                    opcao = 0;
+                }
+                limparBuffer(); 
+                menu = 0;
+            }
+            else if(opcao == 3) {
+                printf("\n=========================================\n");
+                printf("           OBRIGADO POR JOGAR!           \n");
+                printf("=========================================\n");
+                printf("  Desenvolvido por: [Heitor Lima, Leticia Brito e John Braga]      \n");
+                printf("  Disciplina: Algoritmos e Programacao   \n");
+                printf("  Ano: 2026                               \n");
+                printf("=========================================\n\n");
+                menu = 4;
+            }
+            else {
+                printf("Opcao Invalida\n");
+            }
+        }
+
+        else if(menu == 1) {
+            printf("Voce chegou na vila\n");
+            for(i = 0; i < 10; i++){
+                for(j = 0; j < 10; j++){
+                    printf("%c ", vila[i][j]);
+                }
+                printf("\n");
+            }
+            printf("Voce atualmente tem: %d vidas\n\n", vidas);
+            printf("Faca seu movimento: ");
+            scanf(" %c", &movimento);
+            limparBuffer(); 
+
+            int nL = linha, nC = coluna;
+            if(movimento == 'W' || movimento == 'w') { nL--; jogador = '^'; }
+            else if(movimento == 'S' || movimento == 's') { nL++; jogador = 'v'; }
+            else if(movimento == 'A' || movimento == 'a') { nC--; jogador = '<'; }
+            else if(movimento == 'D' || movimento == 'd') { nC++; jogador = '>'; }
+            else if(movimento == 'M' || movimento == 'm') { menu = 0; continue; }
+            else if(movimento == 'I' || movimento == 'i') {
+                if(linha == 8 && coluna == 9) {
+                    if(arma == 0) {
+                        printf("voce primeiro precisa pegar uma arma com o npc (N)\n");
+                    } else {
+                        menu = 2;
+                        linhaAndar = 0; colunaAndar = 0; jogador = 'v';
+                        chave = 0; caixa = 1; 
+                        continue;
+                    }
+                }
+                if(linha == 3 && coluna == 6) {
+                    arma = 0;
+                    while(arma < 1 || arma > 3) {
+                        printf("Ola, voce tem 3 opcoes de arma:\n");
+                        printf("1 - Espada\n");
+                        printf("2 - Arco e Flecha\n");
+                        printf("3 - Cajado\n");
+                        if(scanf("%d", &arma) != 1) {
+                            arma = 0; 
+                        }
+                        limparBuffer(); 
+                        
+                        if(arma == 1) printf("Voce escolheu a espada\n");
+                        else if(arma == 2) printf("Voce escolheu arco e flecha\n");
+                        else if(arma == 3) printf("Voce escolheu o cajado\n");
+                        else printf("Arma invalida\n");
+                    }
+                }
+            }
+
+            if(nL >= 0 && nL < 10 && nC >= 0 && nC < 10) {
+                linha = nL; coluna = nC;
+            }
+
+            for(i = 0; i < 10; i++)
+                for(j = 0; j < 10; j++) vila[i][j] = '.';
+
+            vila[linha][coluna] = jogador;
+            vila[3][6] = 'N';
+            vila[8][9] = 'E';
+        }  
+
+        else if(menu == 2) {
+            printf("Primeiro Andar\n\n");
+            for(i = 0; i < 10; i++)
+                for(j = 0; j < 10; j++) andar1[i][j] = '.';
+
+            if(chave == 0) andar1[2][4] = '@';
+            andar1[5][7] = (chave == 0) ? 'D' : '=';
+            andar1[7][2] = 'L';
+            if(caixa == 1) andar1[3][5] = 'k';
+            
+            andar1[linhaAndar][colunaAndar] = jogador;
+
+            for(i = 0; i < 10; i++) {
+                for(j = 0; j < 10; j++) printf("%c ", andar1[i][j]);
+                printf("\n");
+            }
+
+            printf("\nFaca seu movimento: ");
+            scanf(" %c", &movimento);
+            limparBuffer(); 
+
+            int nL = linhaAndar, nC = colunaAndar;
+            char dir_ataque = jogador;
+
+            if(movimento == 'W' || movimento == 'w') { nL--; jogador = '^'; }
+            else if(movimento == 'S' || movimento == 's') { nL++; jogador = 'v'; }
+            else if(movimento == 'A' || movimento == 'a') { nC--; jogador = '<'; }
+            else if(movimento == 'D' || movimento == 'd') { nC++; jogador = '>'; }
+            else if(movimento == 'M' || movimento == 'm') { menu = 0; continue; }
+            else if(movimento == 'O' || movimento == 'o') {
+                printf("voce realizou um ataque\n");
+                if(caixa == 1) {
+                    if(dir_ataque == '^' && linhaAndar - 1 == 3 && colunaAndar == 5) { caixa = 0; printf("Caixa destruida!\n"); }
+                    else if(dir_ataque == 'v' && linhaAndar + 1 == 3 && colunaAndar == 5) { caixa = 0; printf("Caixa destruida!\n"); }
+                    else if(dir_ataque == '<' && linhaAndar == 3 && colunaAndar - 1 == 5) { caixa = 0; printf("Caixa destruida!\n"); }
+                    else if(dir_ataque == '>' && linhaAndar == 3 && colunaAndar + 1 == 5) { caixa = 0; printf("Caixa destruida!\n"); }
+                    else printf("O ataque nao acertou a caixa.\n");
+                }
+            }
+
+            if(nL >= 0 && nL < 10 && nC >= 0 && nC < 10) {
+                if(nL == 5 && nC == 7 && chave == 0) {
+                    printf("A porta esta trancada!\n");
+                } else if(caixa == 1 && nL == 3 && nC == 5) {
+                    printf("Uma caixa bloqueia o caminho!\n");
+                } else {
+                    linhaAndar = nL; colunaAndar = nC;
+                }
+            }
+
+            if(linhaAndar == 2 && colunaAndar == 4 && chave == 0) {
+                chave = 1;
+                printf("Voce pegou a chave\n");
+            }
+            if(linhaAndar == 7 && colunaAndar == 2) {
+                printf("Voce encontrou a escada\n");
+                printf("Fim do primeiro andar. Avançando...\n");
+                menu = 3;
+            }
+        }
+
+        /* ---- SEGUNDO ANDAR ---- */
+        else if (menu == 3) {
+            char f2[15][15]; int f2L, f2C, f2dir=0, chaves=0, portas=0, mL, mC, mAtivo=1;
+            int f2i, f2j, f2fl, f2fc; char f2mov;
+            iniciarFase2(f2, &f2L, &f2C, &mL, &mC);
+            printf("\n=== SEGUNDO ANDAR ===\n");
+            printf("Cuidado com espinhos (#) e o monstro X!\n");
+            printf("Pegue 2 chaves (@), abra 2 portas (D) e va ate a escada (L).\n");
+            printf("W/A/S/D=mover  I=interagir  O=atacar  M=menu\n");
+            
+            while(menu==3) {
+                imprimirFase2(f2);
+                printf("Vidas:%d | Chaves:%d/2 | Portas:%d/2\n", vidas, chaves, portas);
+                printf("Movimento: ");
+                scanf(" %c", &f2mov);
+                limparBuffer(); 
+                
+                int f2nl=f2L, f2nc=f2C;
+                
+                if(f2mov=='W'||f2mov=='w'){f2nl--;f2dir=0;}
+                else if(f2mov=='S'||f2mov=='s'){f2nl++;f2dir=1;}
+                else if(f2mov=='A'||f2mov=='a'){f2nc--;f2dir=2;}
+                else if(f2mov=='D'||f2mov=='d'){f2nc++;f2dir=3;}
+                else if(f2mov=='M'||f2mov=='m'){menu=0; break;}
+                else if(f2mov=='I'||f2mov=='i'){
+                    f2fl=f2L; f2fc=f2C;
+                    if(f2dir==0)f2fl--; else if(f2dir==1)f2fl++; else if(f2dir==2)f2fc--; else f2fc++;
+                    if(f2fl>=0&&f2fl<15&&f2fc>=0&&f2fc<15){
+                        if(f2[f2fl][f2fc]=='@'){ chaves++; f2[f2fl][f2fc]='.'; printf("Chave coletada! (%d/2)\n", chaves); }
+                        else if(f2[f2fl][f2fc]=='D'){
+                            if(chaves>0){f2[f2fl][f2fc]='='; portas++; chaves--; printf("Porta aberta! (%d/2)\n", portas);}
+                            else printf("Voce precisa de uma chave!\n");
+                        }
+                        else if(f2[f2fl][f2fc]=='O'){ f2[3][3]='.'; f2[3][4]='.'; printf("Botao ativado! Espinhos removidos!\n"); }
+                        else if(f2[f2fl][f2fc]=='L'){
+                            if(portas>=2){printf("Subindo para o 3o andar!\n"); menu=5; break;}
+                            else printf("Abra as 2 portas primeiro!\n");
+                        }
+                    }
+                    continue;
+                }
+                else if(f2mov=='O'||f2mov=='o'){
+                    printf("Ataque!\n");
+                    for(f2i=0;f2i<15;f2i++)
+                        for(f2j=0;f2j<15;f2j++)
+                            if(celulaAtingida(f2L, f2C, f2dir, arma, f2i, f2j)){
+                                if(f2[f2i][f2j]=='k'){f2[f2i][f2j]='.';printf("Caixa destruida!\n");}
+                                if(f2[f2i][f2j]=='X'&&mAtivo){f2[f2i][f2j]='.';mAtivo=0;printf("Monstro X derrotado!\n");}
+                            }
+                    continue;
+                }
+                
+                if(f2nl<0||f2nl>=15||f2nc<0||f2nc>=15) continue;
+                if(f2[f2nl][f2nc]=='*'||f2[f2nl][f2nc]=='D'){printf("Caminho bloqueado!\n");continue;}
+                if(f2[f2nl][f2nc]=='k'){printf("Ha uma caixa!\n");continue;}
+                if(f2[f2nl][f2nc]=='#'){
+                    printf("Espinho! -1 vida.\n"); vidas--;
+                    if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                    iniciarFase2(f2, &f2L, &f2C, &mL, &mC); mAtivo=1; chaves=0; portas=0; f2dir=0; continue;
+                }
+                if(f2[f2nl][f2nc]=='X'&&mAtivo){
+                    printf("Monstro! -1 vida.\n"); vidas--;
+                    if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                    iniciarFase2(f2, &f2L, &f2C, &mL, &mC); mAtivo=1; chaves=0; portas=0; f2dir=0; continue;
+                }
+                
+                f2[f2L][f2C]='.'; f2L=f2nl; f2C=f2nc;
+                f2[f2L][f2C] = (f2dir==0)?'^':(f2dir==1)?'v':(f2dir==2)?'<':'>';
+                
+                if(mAtivo){
+                    moverX(15, 15, f2, &mL, &mC);
+                    if(mL==f2L&&mC==f2C){
+                        printf("Monstro te alcancou! -1 vida.\n"); vidas--;
+                        if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                        iniciarFase2(f2, &f2L, &f2C, &mL, &mC); mAtivo=1; chaves=0; portas=0; f2dir=0;
+                    }
+                }
+            }
+        }
+
+        /* ---- TERCEIRO ANDAR ---- */
+        else if(menu == 5) {
+            char f3[25][25]; int f3L, f3C, f3dir=0, chaves3=0, portas3=0;
+            int x1L, x1C, x1=1, y1L, y1C, y1=1, bL, bC, bAtivo=1, bVidas=3, turno=0;
+            int f3i, f3j, f3fl, f3fc; char f3mov;
+            iniciarFase3(f3, &f3L, &f3C, &x1L, &x1C, &y1L, &y1C, &bL, &bC);
+            printf("\n=== TERCEIRO ANDAR - DESAFIO FINAL ===\n");
+            printf("Derrote o Boss (Z) para vencer! Cuidado com X e Y!\n");
+            printf("W/A/S/D=mover  I=interagir  O=atacar  M=menu\n");
+            
+            while(menu==5){
+                imprimirFase3(f3);
+                printf("Vidas:%d | Chaves:%d/3 | Portas:%d/3 | Boss vidas:%d\n", vidas, chaves3, portas3, bAtivo?bVidas:0);
+                printf("Movimento: ");
+                scanf(" %c", &f3mov);
+                limparBuffer(); 
+                
+                int f3nl=f3L, f3nc=f3C;
+                
+                if(f3mov=='W'||f3mov=='w'){f3nl--;f3dir=0;}
+                else if(f3mov=='S'||f3mov=='s'){f3nl++;f3dir=1;}
+                else if(f3mov=='A'||f3mov=='a'){f3nc--;f3dir=2;}
+                else if(f3mov=='D'||f3mov=='d'){f3nc++;f3dir=3;}
+                else if(f3mov=='M'||f3mov=='m'){menu=0;break;}
+                else if(f3mov=='I'||f3mov=='i'){
+                    f3fl=f3L; f3fc=f3C;
+                    if(f3dir==0)f3fl--; else if(f3dir==1)f3fl++; else if(f3dir==2)f3fc--; else f3fc++;
+                    if(f3fl>=0&&f3fl<25&&f3fc>=0&&f3fc<25){
+                        if(f3[f3fl][f3fc]=='@'){ chaves3++; f3[f3fl][f3fc]='.'; printf("Chave coletada! (%d/3)\n", chaves3); }
+                        else if(f3[f3fl][f3fc]=='D'){
+                            if(chaves3>0){f3[f3fl][f3fc]='='; portas3++; chaves3--; printf("Porta aberta!\n");}
+                            else printf("Voce precisa de uma chave!\n");
+                        }
+                        else if(f3[f3fl][f3fc]=='O'){ f3[4][4]='.'; f3[4][5]='.'; f3[10][10]='.'; printf("Botao ativado! Espinhos removidos!\n"); }
+                        else if(f3[f3fl][f3fc]=='L'){ telaVitoria(); menu=0; vidas=3; arma=0; break; }
+                    }
+                    continue;
+                }
+                else if(f3mov=='O'||f3mov=='o'){
+                    printf("Ataque!\n");
+                    for(f3i=0;f3i<25;f3i++) {
+                        for(f3j=0;f3j<25;f3j++) {
+                            if(celulaAtingida(f3L, f3C, f3dir, arma, f3i, f3j)){
+                                if(f3[f3i][f3j]=='k'){f3[f3i][f3j]='.';printf("Caixa destruida!\n");}
+                                if(f3[f3i][f3j]=='X'&&x1){f3[f3i][f3j]='.';x1=0;printf("Monstro X derrotado!\n");}
+                                if(f3[f3i][f3j]=='Y'&&y1){f3[f3i][f3j]='.';y1=0;printf("Monstro Y derrotado!\n");}
+                                if(f3[f3i][f3j]=='Z'&&bAtivo){
+                                    bVidas--; printf("Boss atingido! Vidas boss:%d\n", bVidas);
+                                    if(bVidas<=0){ f3[f3i][f3j]='.'; bAtivo=0; f3[23][23]='L'; printf("BOSS DERROTADO! Va ate L para vencer!\n"); }
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
+                
+                if(f3nl<0||f3nl>=25||f3nc<0||f3nc>=25) continue;
+                if(f3[f3nl][f3nc]=='*'||f3[f3nl][f3nc]=='D') {printf("Caminho bloqueado!\n");continue;}
+                if(f3[f3nl][f3nc]=='k') {printf("Ha uma caixa!\n");continue;}
+                if(f3[f3nl][f3nc]=='#'){
+                    printf("Espinho! -1 vida.\n"); vidas--;
+                    if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                    iniciarFase3(f3, &f3L, &f3C, &x1L, &x1C, &y1L, &y1C, &bL, &bC); x1=1;y1=1;bAtivo=1;bVidas=3;chaves3=0;portas3=0;f3dir=0;turno=0;continue;
+                }
+                if((f3[f3nl][f3nc]=='X'&&x1)||(f3[f3nl][f3nc]=='Y'&&y1)||(f3[f3nl][f3nc]=='Z'&&bAtivo)){
+                    printf("Monstro! -1 vida.\n"); vidas--;
+                    if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                    iniciarFase3(f3, &f3L, &f3C, &x1L, &x1C, &y1L, &y1C, &bL, &bC); x1=1;y1=1;bAtivo=1;bVidas=3;chaves3=0;portas3=0;f3dir=0;turno=0;continue;
+                }
+                
+                f3[f3L][f3C]='.'; f3L=f3nl; f3C=f3nc;
+                f3[f3L][f3C] = (f3dir==0)?'^':(f3dir==1)?'v':(f3dir==2)?'<':'>';
+                
+                turno++;
+                if(x1) moverX(25, 25, f3, &x1L, &x1C);
+                if(y1) moverY(25, 25, f3, &y1L, &y1C, f3L, f3C);
+                if(bAtivo) moverBoss(25, 25, f3, &bL, &bC, f3L, f3C, turno);
+                
+                if((x1&&x1L==f3L&&x1C==f3C)||(y1&&y1L==f3L&&y1C==f3C)||(bAtivo&&bL==f3L&&bC==f3C)){
+                    printf("Monstro te alcancou! -1 vida.\n"); vidas--;
+                    if(vidas<=0){telaGameOver();menu=0;vidas=3;arma=0;break;}
+                    iniciarFase3(f3, &f3L, &f3C, &x1L, &x1C, &y1L, &y1C, &bL, &bC); x1=1;y1=1;bAtivo=1;bVidas=3;chaves3=0;portas3=0;f3dir=0;turno=0;
+                }
+            }
+        }
+    }
+    return 0;
+}
