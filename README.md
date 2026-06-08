@@ -7,3 +7,4 @@ Derrote o Boss para liberar a escada da vitória.Vidas e Reset: O jogador tem 3 
 Game Over: Com 0 vidas, o jogo limpa o progresso e volta para o menu principal.
 
 Ataque: O personagem muda de ícone conforme anda (^, v, <, >), definindo para onde desferirá os golpes.
+Desenvolvedores: Heitor Tavares Lima, Leticia Brito, John Braga.
